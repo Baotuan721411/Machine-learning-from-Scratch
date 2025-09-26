@@ -44,3 +44,5 @@ plt.plot([x0_1, x0_2], [x1_1, x1_2])
 plt.show()
 acc = np.sum(predictions == y_test) / len(y_test) * 100
 print(acc)
+
+# cố ý để conflict nè
