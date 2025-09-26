@@ -45,3 +45,5 @@ plt.show()
 acc = np.sum(predictions == y_test) / len(y_test) * 100
 print(acc)
 print(model.weights, model.bias)
+# commit để sai doạn code 
+print('hello')
