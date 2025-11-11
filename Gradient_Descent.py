@@ -6,7 +6,6 @@ class GradientDescent:
         self.n_iter = n_iter
         self.X, self.y = X, y
         self.n_samples, self.n_features = X.shape
-
         self.w, self.b = None, None
     def _init_params(self):
         self.w = np.random.randn(self.n_features) * 0.01
@@ -65,5 +64,73 @@ class GradientDescent:
                 self.w -= v_w
                 self.b -= v_b
         return self.w, self.b
+    def mini_batch(self):
+        self._init_params()
+        batch_size = 32  #Số sample cần dùng cho 1 lần cập nhập
+        epoch = 100 # số lần lặp qua toàn bộ dataset
+        for _ in range(epoch):
+            shuffle_index = np.random.permutation(len(self.X))
+            X_shuffle = self.X[shuffle_index]
+            y_shuffle = self.y[shuffle_index]
+            for i in range(0, len(self.X), batch_size):
+                X = X_shuffle[i: i + batch_size]
+                y = y_shuffle[i: i + batch_size]
+                y_linear = np.dot(X, self.w) + self.b
+                error = y_linear - y
+                dw = (1 / len(X)) * (np.dot(X.T, error))
+                db = (1 / len(X)) * np.sum(error)
 
+                self.w -= self.lr * dw
+                self.b -= self.lr * db
+        return self.w, self.b
 
+    def adam(self, beta1=0.9, beta2=0.999, epsilon=1e-8, batch_size=1):
+        self._init_params()
+        m_w = np.zeros_like(self.w, dtype=np.float64)
+        v_w = np.zeros_like(self.w, dtype=np.float64)
+        m_b = 0.0
+        v_b = 0.0
+
+        t = 0  # global step counter for bias correction
+        N = self.n_samples
+
+        for epoch in range(self.n_iter):
+            idxs = np.arange(N)
+            np.random.shuffle(idxs)
+
+            # iterate minibatches (if batch_size > 1)
+            for start in range(0, N, batch_size):
+                batch_idx = idxs[start:start + batch_size]
+                X_batch = self.X[batch_idx]  # shape (bs, d)
+                y_batch = self.y[batch_idx]  # shape (bs, 1) or (bs,)
+
+                # predictions and gradient on the minibatch (mean gradient)
+                y_pred = X_batch.dot(self.w) + self.b  # shape (bs, 1) or (bs,)
+                error = y_pred - y_batch
+                # gradient w.r.t. weights (shape matches self.w)
+                # if self.w shape is (d, 1) use .T dot, if (d,) adjust accordingly
+                dw = (1.0 / len(batch_idx)) * X_batch.T.dot(error)  # shape (d, ...)
+                db = (1.0 / len(batch_idx)) * np.sum(error)  # scalar
+
+                # increment global step
+                t += 1
+
+                # update biased first and second moments
+                m_w = beta1 * m_w + (1 - beta1) * dw
+                v_w = beta2 * v_w + (1 - beta2) * (dw * dw)  # elementwise
+
+                m_b = beta1 * m_b + (1 - beta1) * db
+                v_b = beta2 * v_b + (1 - beta2) * (db * db)
+
+                # bias-corrected moments
+                m_hat_w = m_w / (1 - beta1 ** t)
+                v_hat_w = v_w / (1 - beta2 ** t)
+
+                m_hat_b = m_b / (1 - beta1 ** t)
+                v_hat_b = v_b / (1 - beta2 ** t)
+
+                # parameter update (ensure shapes broadcast correctly)
+                self.w -= self.lr * (m_hat_w / (np.sqrt(v_hat_w) + epsilon))
+                self.b -= self.lr * (m_hat_b / (np.sqrt(v_hat_b) + epsilon))
+
+        return self.w, self.b

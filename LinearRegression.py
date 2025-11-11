@@ -14,7 +14,7 @@ class LinearRegression:
         self.w = None
         self.b = None
     def fit(self, X, y):
-        self.w, self.b = GD.NAG(0.1)
+        self.w, self.b = GD.adam()
     def predict(self, X):
         predictions = np.dot(X, self.w) + self.b
         return predictions
