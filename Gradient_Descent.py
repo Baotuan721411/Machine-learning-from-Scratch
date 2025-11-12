@@ -7,42 +7,50 @@ class GradientDescent:
         self.X, self.y = X, y
         self.n_samples, self.n_features = X.shape
         self.w, self.b = None, None
+        self.lamda = 0.01
     def _init_params(self):
         self.w = np.random.randn(self.n_features) * 0.01
         self.b = np.random.randn() * 0.01
-    def GD(self): # với mỗi iter lại hải tính lại tích dot của ma trận * vector => tốn time
+    def calc_derivative(self, X, y, w, b, regu = None):
+        y_linear = np.dot(X, w) + b
+        error = y_linear - y
+        dw = (1 / len(X)) * np.dot(X.T, error)
+        db = (1 / len(X)) * np.sum(error)
+
+        if regu == 1:
+            dw += self.lamda * np.sum(np.sign(w))
+            db += self.lamda * np.sign(b)
+        elif regu == 2:
+            dw += 2 * self.lamda * np.sum(w)
+            db += 2 * self.lamda * b
+        return dw, db
+    def GD(self, regu = None): # với mỗi iter lại hải tính lại tích dot của ma trận * vector => tốn time
         self._init_params()
         for _ in range(self.n_iter):
-            y_linear = np.dot(self.X, self.w) + self.b
-            dw = (1 / self.n_samples) * np.dot(self.X.T, (y_linear - self.y))
-            db = (1 / self.n_samples) * np.sum(y_linear - self.y)
+            dw, db = self.calc_derivative(self.X, self.y, self.w, self.b, regu)
             self.w -= self.lr * dw
             self.b -= self.lr * db
         return self.w, self.b
-    def SGD(self): # đã khắc phục khi chỉ tính với 1 sample, nhưng vẫn có thể bị mắc kẹt ở local minimal
+    def SGD(self, regu = None): # đã khắc phục khi chỉ tính với 1 sample, nhưng vẫn có thể bị mắc kẹt ở local minimal
         self._init_params()
         for _ in range(self.n_iter):
             for idx in range(self.n_samples):
-                y_linear = np.dot(self.X[idx], self.w) + self.b
-                dw = self.X[idx] * (y_linear - self.y[idx])
-                db = y_linear - self.y[idx]
+                dw, db = self.calc_derivative(self.X[idx], self.y[idx], self.w, self.b, regu)
                 self.w -= self.lr * dw
                 self.b -= self.lr * db
         return self.w, self.b
-    def HeavyBall(self, beta): # vẫn khó hội tụ khi chọn hệ số beta không phù hợp
+    def HeavyBall(self, beta = 0.01, regu = None): # vẫn khó hội tụ khi chọn hệ số beta không phù hợp
         self._init_params()
         self.previous_w, self.previous_b = np.zeros_like(self.w), 0
         for _ in range(self.n_iter):
             for idx in range(self.n_samples):
-                y_linear = np.dot(self.X[idx], self.w) + self.b
-                dw = self.X[idx] * (y_linear - self.y[idx])
-                db = y_linear - self.y[idx]
+                dw, db = self.calc_derivative(self.X[idx], self.y[idx], self.w, self.b, regu)
                 cur_w, cur_b = self.w, self.b
                 self.w = self.w - self.lr * dw + beta * (self.w - self.previous_w)
                 self.b = self.b - self.lr * db + beta * (self.b - self.previous_b)
                 self.previous_w, self.previous_b = cur_w, cur_b
         return self.w, self.b
-    def NAG(self, beta): # Nesterov Accelarated Gradient, nhìn trước để đi đúng hơn, hội tụ nhanh hơn, nhưng vẫn khó với việc chọn hệ số beta
+    def NAG(self, beta = 0.01, regu = None): # Nesterov Accelarated Gradient, nhìn trước để đi đúng hơn, hội tụ nhanh hơn, nhưng vẫn khó với việc chọn hệ số beta
         self._init_params()
         v_w = np.zeros_like(self.w)
         v_b = 0
@@ -54,17 +62,14 @@ class GradientDescent:
                 w_new = self.w - beta * v_w
                 b_new = self.b - beta * v_b
 
-                y_linear = np.dot(self.X[idx], w_new) + b_new
-                error = y_linear - self.y[idx]
-                dw = np.dot(self.X[idx], error)
-                db = np.sum(error)
+                dw, db = self.calc_derivative(self.X[idx], self.y[idx], w_new, b_new, regu)
 
                 v_w  = beta * v_w + self.lr * dw
                 v_b = beta * v_b + self.lr * db
                 self.w -= v_w
                 self.b -= v_b
         return self.w, self.b
-    def mini_batch(self):
+    def mini_batch(self, regu = None):
         self._init_params()
         batch_size = 32  #Số sample cần dùng cho 1 lần cập nhập
         epoch = 100 # số lần lặp qua toàn bộ dataset
@@ -75,16 +80,12 @@ class GradientDescent:
             for i in range(0, len(self.X), batch_size):
                 X = X_shuffle[i: i + batch_size]
                 y = y_shuffle[i: i + batch_size]
-                y_linear = np.dot(X, self.w) + self.b
-                error = y_linear - y
-                dw = (1 / len(X)) * (np.dot(X.T, error))
-                db = (1 / len(X)) * np.sum(error)
-
+                dw, db = self.calc_derivative(X, y, self.w, self.b, regu)
                 self.w -= self.lr * dw
                 self.b -= self.lr * db
         return self.w, self.b
 
-    def adam(self, beta1=0.9, beta2=0.999, epsilon=1e-8, batch_size=1):
+    def adam(self, beta1=0.9, beta2=0.999, epsilon=1e-8, batch_size=1, regu = None):
         self._init_params()
         m_w = np.zeros_like(self.w)
         v_w = np.zeros_like(self.w)
@@ -101,10 +102,7 @@ class GradientDescent:
                 mini_X = X[i : i + batch_size]
                 mini_y = y[i : i + batch_size]
 
-                y_linear = np.dot(mini_X, self.w) + self.b
-                error = y_linear - mini_y
-                dw = (1 / len(mini_X)) * np.dot(mini_X.T, error)
-                db = np.sum(error)
+                dw, db = self.calc_derivative(mini_X, mini_y, self.w, self.b, regu)
 
                 m_w = beta1 * m_w + (1 - beta1) * dw
                 v_w = beta2 * v_w + (1 - beta2) * (dw * dw)
